@@ -1,0 +1,144 @@
+// FacultySystemV2
+
+use FacultySystemV2
+
+// 1. Sum of final marks
+db.courses.aggregate([
+  { $group: { _id: null, TotalFinalMark: { $sum: "$FinalMark" } } }
+])
+
+// 2. Students count
+db.students.aggregate([
+  { $group: { _id: null, StudentsCount: { $sum: 1 } } }
+])
+
+// 3. Embedded Student -> Courses
+db.students.updateOne(
+  { FirstName: "Ahmed" },
+  {
+    $set: {
+      Courses: [
+        { CourseName: "Database", FinalMark: 85 },
+        { CourseName: "C++", FinalMark: 90 },
+        { CourseName: "Networks", FinalMark: 78 }
+      ]
+    }
+  }
+)
+
+// Get courses of Ahmed
+db.students.find(
+  { FirstName: "Ahmed" },
+  { _id: 0, Courses: 1 }
+)
+
+// 4. Manual Reference Student -> Faculty
+db.students.updateOne(
+  { FirstName: "Ahmed" },
+  {
+    $set: {
+      FacultyId: ObjectId("650000000000000000000001")
+    }
+  }
+)
+
+db.students.findOne(
+  { FirstName: "Ahmed" },
+  { FirstName: 1, LastName: 1, FacultyId: 1 }
+)
+
+db.faculty.findOne({
+  _id: ObjectId("650000000000000000000001")
+})
+
+// 5. DBRef
+db.students.updateOne(
+  { FirstName: "Ahmed" },
+  {
+    $set: {
+      Faculty: DBRef(
+        "faculty",
+        ObjectId("650000000000000000000001")
+      )
+    },
+    $unset: { FacultyId: "" }
+  }
+)
+
+db.students.findOne({ FirstName: "Ahmed" })
+
+// 6. Unique index
+db.faculty.createIndex(
+  { FacultyName: 1 },
+  { unique: true }
+)
+// ==================== BONUS ====================
+
+// 1. Map Reduce
+var map = function() {
+  var total = 0;
+  if (this.Courses)
+    this.Courses.forEach(function(c) {
+      total += c.FinalMark;
+    });
+  emit(this.FirstName + " " + this.LastName, total);
+};
+
+var reduce = function(key, values) {
+  return Array.sum(values);
+};
+
+db.students.mapReduce(map, reduce, {
+  out: "studentTotalMarks"
+})
+
+db.studentTotalMarks.find()
+
+
+// 2. Students count in each faculty
+db.students.aggregate([
+  {
+    $lookup: {
+      from: "faculty",
+      localField: "FacultyId",
+      foreignField: "_id",
+      as: "Faculty"
+    }
+  },
+  { $unwind: "$Faculty" },
+  {
+    $group: {
+      _id: "$Faculty.FacultyName",
+      StudentsCount: { $sum: 1 }
+    }
+  }
+])
+
+// 3. MongoDB Atlas
+// Create Cluster -> Database User -> Network Access -> Connect with Compass
+
+// 4. Full Name + Average Grade
+db.students.aggregate([
+  {
+    $project: {
+      _id: 0,
+      FullName: {
+        $concat: ["$FirstName", " ", "$LastName"]
+      },
+      AverageGrade: { $avg: "$Courses.FinalMark" }
+    }
+  }
+])
+
+// 5. Student + Faculty
+db.students.aggregate([
+  {
+    $lookup: {
+      from: "faculty",
+      localField: "FacultyId",
+      foreignField: "_id",
+      as: "Faculty"
+    }
+  },
+  { $unwind: "$Faculty" }
+])
