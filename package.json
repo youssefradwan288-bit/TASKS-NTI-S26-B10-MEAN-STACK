@@ -1,16 +1,17 @@
 {
-  "devDependencies": {
-    "typescript": "^7.0.2"
-  },
-  "name": "testing",
+  "name": "express-todo-lab",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "start": "node index.js",
+  "dev": "nodemon index.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
 }
