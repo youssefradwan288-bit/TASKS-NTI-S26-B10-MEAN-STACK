@@ -1,81 +1,101 @@
-const express = require('express');
-const app = express();
-const PORT = 3000;
+const fs = require("fs");
 
+const file = "todos.json";
 
-app.use(express.json());
+function readTodos() {
+  if (!fs.existsSync(file)) {
+    return [];
+  }
 
+  const data = fs.readFileSync(file, "utf8");
 
-let todos = [];
+  if (!data) {
+    return [];
+  }
 
+  return JSON.parse(data);
+}
 
-app.post('/todos', (req, res) => {
-  const newTodo = {
-    id: Date.now().toString(), 
-    title: req.body.title,
-    status: 'to-do' 
-  };
-  
-  todos.push(newTodo);
-  res.status(201).json({
-    message: "Todo created successfully",
-    todo: newTodo
+function writeTodos(todos) {
+  fs.writeFileSync(file, JSON.stringify(todos, null, 2));
+}
+
+function add(text) {
+  const todos = readTodos();
+
+  let id = 1;
+
+  if (todos.length > 0) {
+    id = todos[todos.length - 1].id + 1;
+  }
+
+  todos.push({
+    id: id,
+    text: text
   });
-});
 
+  writeTodos(todos);
 
-app.get(['/todos', '/toods'], (req, res) => {
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = parseInt(req.query.skip) || 0;
-  
-  const paginatedTodos = todos.slice(skip, skip + limit);
-  res.json({
-    count: paginatedTodos.length,
-    limit,
-    skip,
-    todos: paginatedTodos
+  console.log("Entry added");
+}
+
+function list() {
+  const todos = readTodos();
+
+  if (todos.length === 0) {
+    console.log("No entries");
+    return;
+  }
+
+  todos.forEach(todo => {
+    console.log(todo.id + " - " + todo.text);
   });
-});
+}
 
+function edit(id, text) {
+  const todos = readTodos();
 
-app.get('/todos/:id', (req, res) => {
-  const todo = todos.find(t => t.id === req.params.id);
+  const todo = todos.find(item => item.id === Number(id));
+
   if (!todo) {
-    return res.status(404).json({ message: 'Todo not found' });
+    console.log("Entry not found");
+    return;
   }
-  res.json(todo);
-});
 
+  todo.text = text;
 
-app.patch('/todos/:id', (req, res) => {
-  const todo = todos.find(t => t.id === req.params.id);
-  if (!todo) {
-    return res.status(404).json({ message: 'Todo not found' });
-  }
-  
-  if (req.body.title !== undefined) {
-    todo.title = req.body.title;
-  }
-  
-  res.json({
-    message: "Todo updated successfully",
-    todo
-  });
-});
+  writeTodos(todos);
 
-app.delete('/todos/:id', (req, res) => {
-  const index = todos.findIndex(t => t.id === req.params.id);
+  console.log("Entry updated");
+}
+
+function remove(id) {
+  const todos = readTodos();
+
+  const index = todos.findIndex(item => item.id === Number(id));
+
   if (index === -1) {
-    return res.status(404).json({ message: 'Todo not found' });
+    console.log("Entry not found");
+    return;
   }
-  
-  const deletedTodo = todos.splice(index, 1);
-  res.json({
-    message: 'Todo deleted successfully',
-    deletedTodo: deletedTodo[0]
-  });
-});
 
-app.listen(PORT, () => {
-  console.log(`Server is running smoothly on port ${PORT}`);
-});
+  todos.splice(index, 1);
+
+  writeTodos(todos);
+
+  console.log("Entry deleted");
+}
+
+const command = process.argv[2];
+
+if (command === "add") {
+  add(process.argv[3]);
+} else if (command === "list") {
+  list();
+} else if (command === "edit") {
+  edit(process.argv[3], process.argv[4]);
+} else if (command === "delete") {
+  remove(process.argv[3]);
+} else {
+  console.log("Use: add, list, edit or delete");
+}
